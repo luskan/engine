@@ -33,6 +33,7 @@ import io.flutter.embedding.engine.plugins.service.ServiceAware;
 import io.flutter.embedding.engine.plugins.service.ServiceControlSurface;
 import io.flutter.embedding.engine.plugins.service.ServicePluginBinding;
 import io.flutter.util.TraceSection;
+import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -674,7 +675,7 @@ import java.util.Set;
   }
 
   private static class FlutterEngineActivityPluginBinding implements ActivityPluginBinding {
-    @NonNull private final Activity activity;
+    @NonNull private final WeakReference<Activity> activityRef;
     @NonNull private final HiddenLifecycleReference hiddenLifecycleReference;
 
     @NonNull
@@ -702,14 +703,14 @@ import java.util.Set;
 
     public FlutterEngineActivityPluginBinding(
         @NonNull Activity activity, @NonNull Lifecycle lifecycle) {
-      this.activity = activity;
+      this.activityRef = new WeakReference<>(activity);
       this.hiddenLifecycleReference = new HiddenLifecycleReference(lifecycle);
     }
 
     @Override
     @NonNull
     public Activity getActivity() {
-      return activity;
+      return activityRef.get();
     }
 
     @NonNull
