@@ -456,7 +456,12 @@ bool EntityPass::Render(ContentContext& renderer,
         VALIDATION_LOG << "Failed to encode root pass blit command.";
         return false;
       }
-      renderer.RecordCommandBuffer(std::move(command_buffer));
+      if (!renderer.GetContext()
+               ->GetCommandQueue()
+               ->Submit({command_buffer})
+               .ok()) {
+        return false;
+      }
     } else {
       auto render_pass = command_buffer->CreateRenderPass(root_render_target);
       render_pass->SetLabel("EntityPass Root Render Pass");
@@ -484,7 +489,12 @@ bool EntityPass::Render(ContentContext& renderer,
         VALIDATION_LOG << "Failed to encode root pass command buffer.";
         return false;
       }
-      renderer.RecordCommandBuffer(std::move(command_buffer));
+      if (!renderer.GetContext()
+               ->GetCommandQueue()
+               ->Submit({command_buffer})
+               .ok()) {
+        return false;
+      }
     }
 
     return true;
@@ -859,7 +869,9 @@ bool EntityPass::RenderElement(Entity& element_entity,
 
       if constexpr (ContentContext::kEnableStencilThenCover) {
         // Skip all clip restores when stencil-then-cover is enabled.
-        clip_replay_->RecordEntity(element_entity, clip_coverage.type);
+        if (clip_coverage_stack.back().coverage.has_value()) {
+          clip_replay_->RecordEntity(element_entity, clip_coverage.type);
+        }
         return true;
       }
 
@@ -1259,7 +1271,9 @@ void EntityPassClipRecorder::RecordEntity(const Entity& entity,
       rendered_clip_entities_.push_back(entity.Clone());
       break;
     case Contents::ClipCoverage::Type::kRestore:
-      rendered_clip_entities_.pop_back();
+      if (!rendered_clip_entities_.empty()) {
+        rendered_clip_entities_.pop_back();
+      }
       break;
   }
 }

@@ -734,7 +734,17 @@ def run_android_unittest(test_runner_name, android_variant, adb_path):
   remote_path = '/data/local/tmp'
   remote_tests_path = os.path.join(remote_path, test_runner_name)
   run_cmd([adb_path, 'push', tests_path, remote_path], cwd=BUILDROOT_DIR)
-  run_cmd([adb_path, 'shell', remote_tests_path])
+
+  try:
+    run_cmd([adb_path, 'shell', remote_tests_path])
+  except:
+    luci_test_outputs_path = os.environ.get('FLUTTER_TEST_OUTPUTS_DIR')
+    if luci_test_outputs_path:
+      print('>>>>> Test %s failed. Capturing logcat.' % test_runner_name)
+      logcat_path = os.path.join(luci_test_outputs_path, '%s_logcat' % test_runner_name)
+      logcat_file = open(logcat_path, 'w')
+      subprocess.run([adb_path, 'logcat', '-d'], stdout=logcat_file, check=False)
+    raise
 
 
 def run_android_tests(android_variant='android_debug_unopt', adb_path=None):
@@ -837,7 +847,7 @@ def gather_dart_tests(build_dir, test_filter):
       build_dir,
       os.path.join('dart-sdk', 'bin', 'dart'),
       None,
-      flags=['pub', 'get', '--offline'],
+      flags=['pub', '--suppress-analytics', 'get', '--offline'],
       cwd=dart_tests_dir,
   )
 
@@ -1061,7 +1071,7 @@ def run_impeller_golden_tests(build_dir: str):
     golden_path = os.path.join('testing', 'impeller_golden_tests_output.txt')
     script_path = os.path.join('tools', 'dir_contents_diff', 'bin', 'dir_contents_diff.dart')
     diff_result = subprocess.run(
-        f'{dart_bin} run {script_path} {golden_path} {temp_dir}',
+        f'{dart_bin} --disable-dart-dev {script_path} {golden_path} {temp_dir}',
         check=False,
         shell=True,
         stdout=subprocess.PIPE,
@@ -1084,7 +1094,7 @@ def run_impeller_golden_tests(build_dir: str):
 
     with DirectoryChange(harvester_path):
       bin_path = Path('.').joinpath('bin').joinpath('golden_tests_harvester.dart')
-      run_cmd([dart_bin, 'run', str(bin_path), temp_dir])
+      run_cmd([dart_bin, '--disable-dart-dev', str(bin_path), temp_dir])
 
 
 def main():
